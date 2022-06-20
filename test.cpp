@@ -1,4 +1,4 @@
-// StyleCheckType vector
+// StyleCheckType vector, stack
 
 # include <iostream>
 # include <iomanip>
@@ -34,40 +34,43 @@ typedef Id * IdPtr ;
 typedef vector<TokenPtr> * TokenPtrVecPtr ;
 typedef vector<IdPtr> * IdPtrVecPtr ;
 
+void InitBuf( char * buf, int size ) ;
+void InitBuf100( Str100 buf ) ;
 bool IsDelimiter( const char & ch ) ;
 bool IsWhite( const char & ch ) ;
+bool IsFloatStartWith( const char & ch ) ;
 void Scanner( bool & end, bool & readIllegalorEnd, bool & readSemicolon, TokenPtrVecPtr & tokenBuf ) ;
 void SkipCommand() ;
 void DeleteTokenBuf( TokenPtrVecPtr & tokenBuf ) ;
-void DeleteIdTable( vector<IdPtr> *& idTable ) ;
-void Tokenizer( vector<TokenPtr> *& tokenBuf, char * statement ) ;
+void DeleteIdTable( IdPtrVecPtr & idTable ) ;
+void Tokenizer( TokenPtrVecPtr & tokenBuf, char * statement ) ;
 void StrToIdToken( char * statement, int & startIdx, TokenPtr idToken ) ;
 void StrToNumToken( char * statement, int & startIdx, bool & startwithDot, TokenPtr numToken ) ;
 void StrToDelimiterToken( char * statement, int & startIdx, TokenPtr DelimiterToken ) ;
-bool Parser( vector<TokenPtr> *& tokenBuf, char *& activation ) ;
-bool IsArithExp( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx ) ;
-bool IsTerm( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx ) ;
-bool IsFactor( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx ) ;
-bool IsIDlessArithExpOrBexp( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx ) ;
-bool IsBooleanOperator( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx ) ;
-bool IsNOTIDStartArithExpOrBexp( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx ) ;
-bool IsNOTIDStartArithExp( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx ) ;
-bool IsNOTIDStartTerm( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx ) ;
-bool IsNOTIDStartFactor( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx ) ;
+bool Parser( TokenPtrVecPtr & tokenBuf ) ;
+bool IsArithExp( TokenPtrVecPtr & tokenBuf, int & startIdx, const int endIdx ) ;
+bool IsTerm( TokenPtrVecPtr & tokenBuf, int & startIdx, const int endIdx ) ;
+bool IsFactor( TokenPtrVecPtr & tokenBuf, int & startIdx, const int endIdx ) ;
+bool IsIDlessArithExpOrBexp( TokenPtrVecPtr & tokenBuf, int & startIdx, const int endIdx ) ;
+bool IsBooleanOperator( TokenPtrVecPtr & tokenBuf, int & startIdx, const int endIdx ) ;
+bool IsNOTIDStartArithExpOrBexp( TokenPtrVecPtr & tokenBuf, int & startIdx, const int endIdx ) ;
+bool IsNOTIDStartArithExp( TokenPtrVecPtr & tokenBuf, int & startIdx, const int endIdx ) ;
+bool IsNOTIDStartTerm( TokenPtrVecPtr & tokenBuf, int & startIdx, const int endIdx ) ;
+bool IsNOTIDStartFactor( TokenPtrVecPtr & tokenBuf, int & startIdx, const int endIdx ) ;
 
-int GetOPPriority( const char & ch ) ;
-bool Has( vector<TokenPtr> *& tokenBuf, const char * target, int & position ) ;
-void Calculate( vector<TokenPtr> *& tokenBuf, vector<IdPtr> *& idTable ) ;
-void MergeSign( vector<TokenPtr> *& tokenBuf, vector<TokenPtr> *& mergeBuf,
+int GetOPPriority( Str100 tokenName ) ;
+bool Has( TokenPtrVecPtr & tokenBuf, const char * target, int & position ) ;
+void Calculate( TokenPtrVecPtr & tokenBuf, IdPtrVecPtr & idTable ) ;
+void MergeSign( TokenPtrVecPtr & tokenBuf, TokenPtrVecPtr & mergeBuf,
                 const int startIdx, const int endIdx ) ;
-bool GetIdRecord( vector<IdPtr> *& idTable, const char * target, IdPtr & idRecord ) ;
-void TransferToPostfix( vector<TokenPtr> *& tokenBuf, vector<TokenPtr> *& postfixBuf, 
+bool GetIdRecord( IdPtrVecPtr & idTable, Str100 target, IdPtr & idRecord ) ;
+void TransferToPostfix( TokenPtrVecPtr & tokenBuf, TokenPtrVecPtr & postfixBuf, 
                         const int startIdx, const int endIdx ) ;
-int CalculatePostfixForInt( vector<TokenPtr> *& postfixBuf, vector<IdPtr> *& idTable, bool & err ) ;
-float CalculatePostfixForFloat( vector<TokenPtr> *& postfixBuf, vector<IdPtr> *& idTable, bool & err ) ;
+int CalculatePostfixForInt( TokenPtrVecPtr & postfixBuf, IdPtrVecPtr & idTable, bool & err ) ;
+float CalculatePostfixForFloat( TokenPtrVecPtr & postfixBuf, IdPtrVecPtr & idTable, bool & err ) ;
 float Rounding3( float num ) ;
-void DefineId( vector<IdPtr> *& idTable, IdPtr & idSource ) ;
-bool IsFloatOperation( vector<TokenPtr> *& postfixBuf, vector<IdPtr> *& idTable ) ;
+void DefineId( IdPtrVecPtr & idTable, IdPtr & idSource ) ;
+bool IsFloatOperation( TokenPtrVecPtr & postfixBuf, IdPtrVecPtr & idTable ) ;
 bool Compare( float num1, float num2, TokenPtr & cmpOp ) ;
 
 
@@ -82,7 +85,6 @@ int main()
   vector<TokenPtr> * tokenBuf = new vector<TokenPtr>() ;
   tokenBuf->reserve( 10 ) ;
   
-  char * activation = new char[30] ;
   bool end = false, readSemicolon = false, readIllegal = false ;
   
   vector<IdPtr> * idTable = new vector<IdPtr>() ;
@@ -113,7 +115,7 @@ int main()
     {
 
       // check syntax && excute statement, then flush token buffer
-      bool isOk = Parser( tokenBuf, activation ) ;
+      bool isOk = Parser( tokenBuf ) ;
 
       if ( isOk ) // excute
       {
@@ -124,7 +126,8 @@ int main()
         /*
         cout << "table:\n" ;
         for ( int i = 0 ; i < idTable->size() ; i++ )
-          cout << idTable->at(i)->name << ", " << idTable->at(i)->type << ", " << idTable->at(i)->valueInt << ", " << idTable->at(i)->valueFloat << endl ;
+          cout << idTable->at(i)->name << ", " << idTable->at(i)->type << ", " 
+          << idTable->at(i)->valueInt << ", " << idTable->at(i)->valueFloat << endl ;
         
         cout << "\n<end>\n" ; 
         */
@@ -148,21 +151,20 @@ int main()
       strcpy( idToken->type, "TMP_COMMAND_END" ) ;
       tokenBuf->push_back( idToken ) ;
 
-      bool isOk = Parser( tokenBuf, activation ) ;
+      bool isOk = Parser( tokenBuf ) ;
 
       tokenBuf->pop_back() ;
       
       if ( !isOk )
         tokenBuf->clear() ;
       
-    } // else => read '\n'
+    } // else if => read '\n'
 
     readSemicolon = false ;
     readIllegal = false ;
 
   } while ( !end ) ;
 
-  delete activation ;
   DeleteTokenBuf( tokenBuf ) ;
   DeleteIdTable( idTable ) ;
   tokenBuf->clear() ;
@@ -171,7 +173,19 @@ int main()
   delete idTable ;
   cout << "> Program exits..." << endl ;
   return 0 ;
-} // int main()
+} // main()
+
+void InitBuf( char * buf, int size )
+{
+  for ( int i = 0 ; i < size ; i++ )
+    buf[i] = '\0' ;
+} // InitBuf()
+
+void InitBuf100( Str100 buf )
+{
+  for ( int i = 0 ; i < 100 ; i++ )
+    buf[i] = '\0' ;
+} // InitBuf100()
 
 bool IsWhite( const char & ch )
 {
@@ -187,10 +201,10 @@ bool IsDelimiter( const char & ch )
            ch == ':' || ch == '=' || ch == '_' ) ;
 } // IsDelimiter()
 
-bool isFloatStartWith( const char & ch )
+bool IsFloatStartWith( const char & ch )
 {
   return ( ch == '.' || isdigit( ch ) ) ;
-} // isFloatStartWith()
+} // IsFloatStartWith()
 
 void SkipCommand()
 {
@@ -201,12 +215,12 @@ void SkipCommand()
 
 } // SkipCommand()
 
-void Scanner( bool & end, bool & readIllegal, bool & readSemicolon, vector<TokenPtr> *& tokenBuf )
+void Scanner( bool & end, bool & readIllegal, bool & readSemicolon, TokenPtrVecPtr & tokenBuf )
 {
   bool prevIsSlash = false ;
 
   char * statementBuf = new char[400] ; // record temp string until ';' or '\n' is read
-  memset( statementBuf, '\0', 400 * sizeof( char ) ) ;
+  InitBuf( statementBuf, 400 ) ;
 
   int state_idx = 0 ;
   char ch = cin.get() ;
@@ -219,7 +233,7 @@ void Scanner( bool & end, bool & readIllegal, bool & readSemicolon, vector<Token
       delete statementBuf ;
       end = true ;
       return ;
-    }
+    } // if
 
     if ( IsWhite( ch ) )
       prevIsSlash = false ;
@@ -292,26 +306,31 @@ void Scanner( bool & end, bool & readIllegal, bool & readSemicolon, vector<Token
   return ;
 } // Scanner()
 
-void DeleteTokenBuf( vector<TokenPtr> *& tokenBuf )
+void DeleteTokenBuf( TokenPtrVecPtr & tokenBuf )
 {
   if ( tokenBuf->size() == 0 )
     return ;
   
   for ( int i = tokenBuf->size() - 1 ; i >= 0 ; i-- )
-    delete tokenBuf->at( i ) ;
-  
+  {
+    TokenPtr tmp = tokenBuf->at( i ) ;
+    delete tmp ;
+  } // for
 } // DeleteTokenBuf()
 
-void DeleteIdTable( vector<IdPtr> *& idTable )
+void DeleteIdTable( IdPtrVecPtr & idTable )
 {
   if ( idTable->size() == 0 )
     return ;
   
   for ( int i = idTable->size() - 1 ; i >= 0 ; i-- )
-    delete idTable->at( i ) ;
+  {
+    IdPtr tmp = idTable->at( i ) ;
+    delete tmp ;
+  } // for
 } // DeleteIdTable()
 
-void Tokenizer( vector<TokenPtr> *& tokenBuf, char * statement )
+void Tokenizer( TokenPtrVecPtr & tokenBuf, char * statement )
 {
     // QUIT is the word 'quit', an IDENT starts with a letter and is followed by digits or letters or
     // underlines
@@ -369,7 +388,7 @@ void Tokenizer( vector<TokenPtr> *& tokenBuf, char * statement )
 void StrToIdToken( char * statement, int & startIdx, TokenPtr idToken )
 {
   Str100 tmpId ;
-  memset( tmpId, '\0', sizeof( tmpId ) ) ;
+  InitBuf100( tmpId ) ;
 
   char ch = statement[startIdx] ;
   int tmpIdIdx = 0 ;
@@ -391,7 +410,7 @@ void StrToNumToken( char * statement, int & startIdx, bool & startwithDot, Token
 {
   char ch = statement[startIdx] ;
   Str100 tmpNum ;
-  memset( tmpNum, '\0', sizeof( tmpNum ) ) ;
+  InitBuf100( tmpNum ) ;
 
   if ( startwithDot ) // is float
   {
@@ -444,7 +463,7 @@ void StrToDelimiterToken( char * statement, int & startIdx, TokenPtr DelimiterTo
 {
   char ch = statement[startIdx] ;
   Str100 tmpBuf ;
-  memset( tmpBuf, '\0', sizeof( tmpBuf ) ) ;
+  InitBuf100( tmpBuf ) ;
 
   if ( ch == ':' ) // maybe ":=" or just ':'
   {
@@ -472,8 +491,6 @@ void StrToDelimiterToken( char * statement, int & startIdx, TokenPtr DelimiterTo
 
   else if ( ch == '+' || ch == '-' || ch == '*' || ch == '/' ) // arithmetic operator
   {
-    Str100 tmpBuf ;
-    memset( tmpBuf, '\0', sizeof( tmpBuf ) ) ;
     tmpBuf[0] = ch ;
     strcpy( DelimiterToken->name, tmpBuf ) ;
     strcpy( DelimiterToken->type, "OPERATOR" ) ;
@@ -484,8 +501,6 @@ void StrToDelimiterToken( char * statement, int & startIdx, TokenPtr DelimiterTo
   // "=" "<" "<=" "<>" ">" ">="
   else if ( ch == '=' || ch == '<' || ch == '>' ) // compare operator
   {
-    Str100 tmpBuf ;
-    memset( tmpBuf, '\0', sizeof( tmpBuf ) ) ;
     
     if ( ch == '=' )
     {
@@ -523,12 +538,13 @@ void StrToDelimiterToken( char * statement, int & startIdx, TokenPtr DelimiterTo
 
     strcpy( DelimiterToken->name, tmpBuf ) ;
     strcpy( DelimiterToken->type, "CMP_OPERATOR" ) ;
+
   } // else if ( compare operator )
 
   else if ( ch == '(' || ch == ')' )
   {
     Str100 tmpBuf ;
-    memset( tmpBuf, '\0', sizeof( tmpBuf ) ) ;
+    InitBuf100( tmpBuf ) ;
     tmpBuf[0] = ch ;
     strcpy( DelimiterToken->name, tmpBuf ) ;
     strcpy( DelimiterToken->type, "PARENTHESES" ) ;
@@ -538,29 +554,26 @@ void StrToDelimiterToken( char * statement, int & startIdx, TokenPtr DelimiterTo
 
 } // StrToDelimiterToken()
 
-bool Parser( vector<TokenPtr> *& tokenBuf, char *& activation )
+bool Parser( TokenPtrVecPtr & tokenBuf )
 {
-  char * tokenType = tokenBuf->at( 0 )->type ;
   bool isOk = false ;
 
   int startIdx = 0 ;
   int lastIdx = tokenBuf->size() - 1 ;
 
-  if ( !strcmp( tokenType, "ID" ) )
+  if ( !strcmp( tokenBuf->at( 0 )->type, "ID" ) )
   {
     if ( tokenBuf->size() > 1 ) // ( ':=' <ArithExp> | <IDlessArithExpOrBexp> ) ';'
     {
       if ( !strcmp( tokenBuf->at( 1 )->name, ":=" ) )
       {
         startIdx = 2 ;
-        isOk = IsArithExp( tokenBuf, startIdx, lastIdx - 1) ; // token_vector, startIdx, endIdx(exclude ';')
-        strcpy( activation,  "ArithExp" ) ;
+        isOk = IsArithExp( tokenBuf, startIdx, lastIdx - 1 ) ; // token_vector, startIdx, endIdx(exclude ';')
       } // if
       else
       {
         startIdx = 1 ;
         isOk = IsIDlessArithExpOrBexp( tokenBuf, startIdx, lastIdx - 1 ) ;
-        strcpy( activation,  "IDlessArithExpOrBexp" ) ;
       } // else
 
       if ( isOk && ( startIdx == lastIdx ) )
@@ -577,7 +590,6 @@ bool Parser( vector<TokenPtr> *& tokenBuf, char *& activation )
 
     else // only "ID"
     {
-      strcpy( activation,  "ID" ) ;
       return true ;
     } // else ( only "ID" )
   } // if ( start with "ID" )
@@ -586,7 +598,6 @@ bool Parser( vector<TokenPtr> *& tokenBuf, char *& activation )
   {
     int startIdx = 0 ;
     bool isOk = IsNOTIDStartArithExpOrBexp( tokenBuf, startIdx, lastIdx - 1 ) ;
-    strcpy( activation,  "NOT_IDStartArithExpOrBexp" ) ;
 
     if ( isOk )
       return true ; // temp
@@ -597,7 +608,7 @@ bool Parser( vector<TokenPtr> *& tokenBuf, char *& activation )
   
 } // Parser()
 
-bool IsArithExp( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx )
+bool IsArithExp( TokenPtrVecPtr & tokenBuf, int & startIdx, const int endIdx )
 {
   // <Term> { '+' <Term> | '-' <Term> }
   bool isOk = IsTerm( tokenBuf, startIdx, endIdx ) ;
@@ -636,7 +647,7 @@ bool IsArithExp( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx 
       } // while
       
       return true ;
-    } // else if
+    } // if
 
     else
       return true ;
@@ -646,7 +657,7 @@ bool IsArithExp( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx 
   return false ;
 } // IsArithExp()
 
-bool IsTerm( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx )
+bool IsTerm( TokenPtrVecPtr & tokenBuf, int & startIdx, const int endIdx )
 {
   // <Factor> { '*' <Factor> | '/' <Factor> }
 
@@ -696,7 +707,7 @@ bool IsTerm( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx )
   return false ;
 } // IsTerm()
 
-bool IsFactor( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx )
+bool IsFactor( TokenPtrVecPtr & tokenBuf, int & startIdx, const int endIdx )
 {
   // ID | [ SIGN ] NUM | '(' <ArithExp> ')'
 
@@ -722,7 +733,7 @@ bool IsFactor( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx )
 
       else
       {
-        if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ))
+        if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ) )
           return true ;
 
         cout << "> Unexpected token : " << "\'" << tokenBuf->at( startIdx )->name << "\'\n" ;
@@ -732,7 +743,7 @@ bool IsFactor( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx )
 
     else // only '+' or '-' in the end
     {
-      if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ))
+      if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ) )
         return true ;
 
       cout << "> Unexpected token : " << "\'" << tokenBuf->at( startIdx - 1 )->name << "\'\n" ;
@@ -759,7 +770,7 @@ bool IsFactor( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx )
       {
         if ( startIdx > endIdx )
         {
-          if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ))
+          if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ) )
             return true ;
           cout << "> Unexpected token : " << "\'" << "(" << "\'\n" ;
           return false ;
@@ -772,7 +783,7 @@ bool IsFactor( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx )
         } // if
         else
         {
-          if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ))
+          if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ) )
             return true ;
           cout << "> Unexpected token : " << "\'" << tokenBuf->at( startIdx - 1 )->name << "\'\n" ;
           return false ;
@@ -785,7 +796,7 @@ bool IsFactor( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx )
 
     else // last token is current '('
     {
-      if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ))
+      if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ) )
         return true ;
       cout << "> Unexpected token : " << "\'" << tokenBuf->at( startIdx - 1 )->name << "\'\n" ;
       return false ;
@@ -794,19 +805,19 @@ bool IsFactor( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx )
 
   else // not allowed token
   {
-    if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ))
+    if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ) )
       return true ;
     cout << "> Unexpected token : " << "\'" << tokenBuf->at( startIdx )->name << "\'\n" ;
     return false ;
   } // else
 } // IsFactor()
 
-bool IsIDlessArithExpOrBexp( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx )
+bool IsIDlessArithExpOrBexp( TokenPtrVecPtr & tokenBuf, int & startIdx, const int endIdx )
 {
   while ( startIdx <= endIdx )
   {
-    if ( !strcmp( tokenBuf->at(startIdx)->name, "+" ) ||
-         !strcmp( tokenBuf->at(startIdx)->name, "-" ) )
+    if ( !strcmp( tokenBuf->at( startIdx )->name, "+" ) ||
+         !strcmp( tokenBuf->at( startIdx )->name, "-" ) )
     {
       startIdx++ ;
 
@@ -816,8 +827,8 @@ bool IsIDlessArithExpOrBexp( vector<TokenPtr> *& tokenBuf, int & startIdx, const
         return false ;
     } // if
 
-    else if ( !strcmp( tokenBuf->at(startIdx)->name, "*" ) ||
-              !strcmp( tokenBuf->at(startIdx)->name, "/" ) )
+    else if ( !strcmp( tokenBuf->at( startIdx )->name, "*" ) ||
+              !strcmp( tokenBuf->at( startIdx )->name, "/" ) )
     {
       startIdx++ ;
 
@@ -842,9 +853,9 @@ bool IsIDlessArithExpOrBexp( vector<TokenPtr> *& tokenBuf, int & startIdx, const
 
     else
     {
-      if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ))
+      if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ) )
         return true ;
-      cout << "> Unexpected token : " << "\'" << tokenBuf->at( startIdx )->name << "\'\n" ;
+      
       return false ;
     } // else
 
@@ -854,7 +865,7 @@ bool IsIDlessArithExpOrBexp( vector<TokenPtr> *& tokenBuf, int & startIdx, const
 
 } // IsIDlessArithExpOrBexp()
 
-bool IsNOTIDStartArithExpOrBexp( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx )
+bool IsNOTIDStartArithExpOrBexp( TokenPtrVecPtr & tokenBuf, int & startIdx, const int endIdx )
 {
   // <NOT_ID_StartArithExp> [ <BooleanOperator> <ArithExp> ]
 
@@ -873,14 +884,14 @@ bool IsNOTIDStartArithExpOrBexp( vector<TokenPtr> *& tokenBuf, int & startIdx, c
     
 } // IsNOTIDStartArithExpOrBexp()
 
-bool IsBooleanOperator( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx )
+bool IsBooleanOperator( TokenPtrVecPtr & tokenBuf, int & startIdx, const int endIdx )
 {
-  if ( !strcmp( tokenBuf->at(startIdx)->name, "=" ) ||
-       !strcmp( tokenBuf->at(startIdx)->name, "<>" ) ||
-       !strcmp( tokenBuf->at(startIdx)->name, ">" ) ||
-       !strcmp( tokenBuf->at(startIdx)->name, "<" ) ||
-       !strcmp( tokenBuf->at(startIdx)->name, ">=" ) ||
-       !strcmp( tokenBuf->at(startIdx)->name, "<=" ) )
+  if ( !strcmp( tokenBuf->at( startIdx )->name, "=" ) ||
+       !strcmp( tokenBuf->at( startIdx )->name, "<>" ) ||
+       !strcmp( tokenBuf->at( startIdx )->name, ">" ) ||
+       !strcmp( tokenBuf->at( startIdx )->name, "<" ) ||
+       !strcmp( tokenBuf->at( startIdx )->name, ">=" ) ||
+       !strcmp( tokenBuf->at( startIdx )->name, "<=" ) )
   {
     startIdx++ ;
     return true ;
@@ -888,14 +899,14 @@ bool IsBooleanOperator( vector<TokenPtr> *& tokenBuf, int & startIdx, const int 
 
   else
   {
-    if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ))
+    if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ) )
       return true ;
     cout << "> Unexpected token : " << "\'" << tokenBuf->at( startIdx )->name << "\'\n" ;
     return false ;
   } // else
 } // IsBooleanOperator()
 
-bool IsNOTIDStartArithExp( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx )
+bool IsNOTIDStartArithExp( TokenPtrVecPtr & tokenBuf, int & startIdx, const int endIdx )
 {
   // <NOT_ID_StartTerm> { '+' <Term> | '-' <Term> }
   bool isOk = IsNOTIDStartTerm( tokenBuf, startIdx, endIdx ) ;
@@ -935,7 +946,7 @@ bool IsNOTIDStartArithExp( vector<TokenPtr> *& tokenBuf, int & startIdx, const i
 
       return true ;
         
-    } // else if
+    } // if
 
     else
       return true ;
@@ -945,7 +956,7 @@ bool IsNOTIDStartArithExp( vector<TokenPtr> *& tokenBuf, int & startIdx, const i
   return false ;
 } // IsNOTIDStartArithExp()
 
-bool IsNOTIDStartTerm( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx )
+bool IsNOTIDStartTerm( TokenPtrVecPtr & tokenBuf, int & startIdx, const int endIdx )
 {
   // <NOT_ID_StartFactor> { '*' <Factor> | '/' <Factor> }
 
@@ -996,7 +1007,7 @@ bool IsNOTIDStartTerm( vector<TokenPtr> *& tokenBuf, int & startIdx, const int e
 
 } // IsNOTIDStartTerm()
 
-bool IsNOTIDStartFactor( vector<TokenPtr> *& tokenBuf, int & startIdx, const int endIdx )
+bool IsNOTIDStartFactor( TokenPtrVecPtr & tokenBuf, int & startIdx, const int endIdx )
 {
   // [ SIGN ] NUM | '(' <ArithExp> ')'
   if ( !strcmp( tokenBuf->at( startIdx )->name, "+" ) ||
@@ -1015,7 +1026,7 @@ bool IsNOTIDStartFactor( vector<TokenPtr> *& tokenBuf, int & startIdx, const int
 
       else
       {
-        if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ))
+        if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ) )
           return true ;
 
         cout << "> Unexpected token : " << "\'" << tokenBuf->at( startIdx )->name << "\'\n" ;
@@ -1025,12 +1036,12 @@ bool IsNOTIDStartFactor( vector<TokenPtr> *& tokenBuf, int & startIdx, const int
 
     else
     {
-      if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ))
+      if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ) )
         return true ;
       cout << "> Unexpected token : " << "\'" << tokenBuf->at( startIdx - 1 )->name << "\'\n" ;
       return false ;
     } // else
-  } // else if ( "SIGN"  "NUM" )
+  } // if ( "SIGN"  "NUM" )
 
   else if ( !strcmp( tokenBuf->at( startIdx )->type, "NUM_INT" ) ||
             !strcmp( tokenBuf->at( startIdx )->type, "NUM_FLOAT" ) )
@@ -1051,7 +1062,7 @@ bool IsNOTIDStartFactor( vector<TokenPtr> *& tokenBuf, int & startIdx, const int
       {
         if ( startIdx > endIdx )
         {
-          if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ))
+          if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ) )
             return true ;
 
           cout << "> Unexpected token : " << "\'" << "(" << "\'\n" ;
@@ -1065,7 +1076,7 @@ bool IsNOTIDStartFactor( vector<TokenPtr> *& tokenBuf, int & startIdx, const int
         } // if
         else
         {
-          if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ))
+          if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ) )
             return true ;
 
           cout << "> Unexpected token : " << "\'" << tokenBuf->at( startIdx - 1 )->name << "\'\n" ;
@@ -1079,7 +1090,7 @@ bool IsNOTIDStartFactor( vector<TokenPtr> *& tokenBuf, int & startIdx, const int
 
     else // last token is current '('
     {
-      if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ))
+      if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ) )
         return true ;
 
       cout << "> Unexpected token : " << "\'" << tokenBuf->at( startIdx - 1 )->name << "\'\n" ;
@@ -1089,7 +1100,7 @@ bool IsNOTIDStartFactor( vector<TokenPtr> *& tokenBuf, int & startIdx, const int
 
   else // not allowed token
   {
-    if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ))
+    if ( !strcmp( tokenBuf->at( startIdx )->name, "x;" ) )
       return true ;
 
     cout << "> Unexpected token : " << "\'" << tokenBuf->at( startIdx )->name << "\'\n" ;
@@ -1097,7 +1108,7 @@ bool IsNOTIDStartFactor( vector<TokenPtr> *& tokenBuf, int & startIdx, const int
   } // else
 } // IsNOTIDStartFactor()
 
-int GetOPPriority( const char * tokenName )
+int GetOPPriority( Str100 tokenName )
 {
   if ( !strcmp( tokenName, "*" ) ||
        !strcmp( tokenName, "/" ) )
@@ -1106,7 +1117,7 @@ int GetOPPriority( const char * tokenName )
     return 0 ;
 } // GetOPPriority()
 
-bool Has( vector<TokenPtr> *& tokenBuf, const char * target, int & position )
+bool Has( TokenPtrVecPtr & tokenBuf, const char * target, int & position )
 {
   // has a target token
   
@@ -1123,14 +1134,14 @@ bool Has( vector<TokenPtr> *& tokenBuf, const char * target, int & position )
 
 } // Has()
 
-bool IsFloatOperation( vector<TokenPtr> *& postfixBuf, vector<IdPtr> *& idTable )
+bool IsFloatOperation( TokenPtrVecPtr & postfixBuf, IdPtrVecPtr & idTable )
 {
   for ( int i = 0 ; i < postfixBuf->size() ; i++ )
   {
     if ( !strcmp( postfixBuf->at( i )->type, "NUM_FLOAT" ) )
     {
       return true ;
-    }
+    } // if
     else if ( !strcmp( postfixBuf->at( i )->type, "ID" ) )
     {
       IdPtr idRecord = NULL ;
@@ -1199,7 +1210,7 @@ bool Compare( float num1, float num2, TokenPtr & cmpOp )
   } // else if ( small than or equal to )
 } // Compare()
 
-void Calculate( vector<TokenPtr> *& tokenBuf, vector<IdPtr> *& idTable )
+void Calculate( TokenPtrVecPtr & tokenBuf, IdPtrVecPtr & idTable )
 {
   vector<TokenPtr> * postfixBuf = new vector<TokenPtr>() ;
   postfixBuf->reserve( 10 ) ;
@@ -1211,16 +1222,21 @@ void Calculate( vector<TokenPtr> *& tokenBuf, vector<IdPtr> *& idTable )
   {
     // using float to compare every formula
     TransferToPostfix( tokenBuf, postfixBuf, 0, position - 1 ) ;
-    float num1 = CalculatePostfixForFloat( postfixBuf, idTable, err ) ;
 
+    float num1 = CalculatePostfixForFloat( postfixBuf, idTable, err ) ;
+    
     if ( err )
       return ;
     
     postfixBuf->clear() ;
 
     TransferToPostfix( tokenBuf, postfixBuf, position + 1, tokenBuf->size() - 2 ) ;
+
     float num2 = CalculatePostfixForFloat( postfixBuf, idTable, err ) ;
 
+    if ( err )
+      return ;
+    
     TokenPtr cmpOp = tokenBuf->at( position ) ;
 
     if ( Compare( num1, num2, cmpOp ) )
@@ -1265,7 +1281,7 @@ void Calculate( vector<TokenPtr> *& tokenBuf, vector<IdPtr> *& idTable )
       DefineId( idTable, id ) ;
 
       num = Rounding3( num ) ;
-      cout << "> " << fixed << setprecision(3) << num << endl ;
+      cout << "> " << fixed << setprecision( 3 ) << num << endl ;
     } // else
   } // else if
   
@@ -1290,7 +1306,7 @@ void Calculate( vector<TokenPtr> *& tokenBuf, vector<IdPtr> *& idTable )
       if ( err )
         return ;
       num = Rounding3( num ) ;
-      cout << "> " << fixed << setprecision(3) << num << endl ;
+      cout << "> " << fixed << setprecision( 3 ) << num << endl ;
     } // else
     
   } // else
@@ -1298,7 +1314,7 @@ void Calculate( vector<TokenPtr> *& tokenBuf, vector<IdPtr> *& idTable )
   delete postfixBuf ;
 } // Calculate()
 
-void MergeSign( vector<TokenPtr> *& tokenBuf, vector<TokenPtr> *& mergeBuf,
+void MergeSign( TokenPtrVecPtr & tokenBuf, TokenPtrVecPtr & mergeBuf,
                 const int startIdx, const int endIdx )
 {
   bool end = false ;
@@ -1322,13 +1338,17 @@ void MergeSign( vector<TokenPtr> *& tokenBuf, vector<TokenPtr> *& mergeBuf,
         if ( !strcmp( tokenBuf->at( i )->type, "NUM_INT" ) )
         {
           int newValue = -1 * atoi( tokenBuf->at( i )->name ) ;
-          sprintf( mergeBuf->at( mergeBuf->size() - 1 )->name, "%d", newValue ) ;
+          Str100 tmp ;
+          sprintf( tmp, "%d", newValue ) ;
+          strcpy( mergeBuf->at( mergeBuf->size() - 1 )->name, tmp ) ;
         } // if int
 
         else
         {
           float newValue = -1 * atof( tokenBuf->at( i )->name ) ;
-          sprintf( mergeBuf->at( mergeBuf->size() - 1 )->name, "%f", newValue ) ;
+          Str100 tmp ;
+          sprintf( tmp, "%f", newValue ) ;
+          strcpy( mergeBuf->at( mergeBuf->size() - 1 )->name, tmp ) ;
         } // else float
 
         strcpy( mergeBuf->at( mergeBuf->size() - 1 )->type, tokenBuf->at( i )->type ) ;
@@ -1337,7 +1357,7 @@ void MergeSign( vector<TokenPtr> *& tokenBuf, vector<TokenPtr> *& mergeBuf,
       else
       {
         mergeBuf->push_back( tokenBuf->at( i ) ) ;
-      }
+      } // else
       
       end = true ;
       newStartIdx = i + 1 ;
@@ -1390,13 +1410,17 @@ void MergeSign( vector<TokenPtr> *& tokenBuf, vector<TokenPtr> *& mergeBuf,
             if ( !strcmp( tokenBuf->at( i )->type, "NUM_INT" ) )
             {
               int newValue = -1 * atoi( tokenBuf->at( i )->name ) ;
-              sprintf( mergeBuf->at( mergeBuf->size() - 1 )->name, "%d", newValue ) ;
+              Str100 tmp ;
+              sprintf( tmp, "%d", newValue ) ;
+              strcpy( mergeBuf->at( mergeBuf->size() - 1 )->name, tmp ) ;
             } // if int
 
             else
             {
               float newValue = -1 * atof( tokenBuf->at( i )->name ) ;
-              sprintf( mergeBuf->at( mergeBuf->size() - 1 )->name, "%f", newValue ) ;
+              Str100 tmp ;
+              sprintf( tmp, "%f", newValue ) ;
+              strcpy( mergeBuf->at( mergeBuf->size() - 1 )->name, tmp ) ;
             } // else float
 
             strcpy( mergeBuf->at( mergeBuf->size() - 1 )->type, tokenBuf->at( i )->type ) ;
@@ -1434,7 +1458,7 @@ void MergeSign( vector<TokenPtr> *& tokenBuf, vector<TokenPtr> *& mergeBuf,
   
 } // MergeSign()
 
-void TransferToPostfix( vector<TokenPtr> *& tokenBuf, vector<TokenPtr> *& postfixBuf, 
+void TransferToPostfix( TokenPtrVecPtr & tokenBuf, TokenPtrVecPtr & postfixBuf, 
                         const int startIdx, const int endIdx )
 {
   // merge sign
@@ -1492,7 +1516,7 @@ void TransferToPostfix( vector<TokenPtr> *& tokenBuf, vector<TokenPtr> *& postfi
 
 } // TransferToPostfix()
 
-bool GetIdRecord( vector<IdPtr> *& idTable, const char * target, IdPtr & idRecord )
+bool GetIdRecord( IdPtrVecPtr & idTable, Str100 target, IdPtr & idRecord )
 {
   for ( int i = 0 ; i < idTable->size() ; i++ )
   {
@@ -1506,8 +1530,29 @@ bool GetIdRecord( vector<IdPtr> *& idTable, const char * target, IdPtr & idRecor
   return false ;
 } // GetIdRecord()
 
-int CalculatePostfixForInt( vector<TokenPtr> *& postfixBuf, vector<IdPtr> *& idTable, bool & err )
+int CalculatePostfixForInt( TokenPtrVecPtr & postfixBuf, IdPtrVecPtr & idTable, bool & err )
 {
+  if ( postfixBuf->size() == 1 )
+  {
+    if ( !strcmp( postfixBuf->at( 0 )->type, "ID" ) )
+    {
+      IdPtr idRecord = NULL ;
+
+      if ( GetIdRecord( idTable, postfixBuf->at( 0 )->name, idRecord ) )
+      {
+        return idRecord->valueInt ;
+      } // if
+
+      else
+      {
+        cout << "> Undefined identifier : \'" <<  postfixBuf->at( 0 )->name << "\'" << endl ;
+        err = true ;
+        return -1 ;
+      } // else
+    } // if
+
+  } // if ( only 1 operand )
+
   stack<TokenPtr> * stk = new stack<TokenPtr>() ;
 
   for ( int i = 0 ; i < postfixBuf->size() ; i++ )
@@ -1560,7 +1605,7 @@ int CalculatePostfixForInt( vector<TokenPtr> *& postfixBuf, vector<IdPtr> *& idT
           return -1 ;
         } // else
       } // if
-      else // is number
+      else if ( !stk->empty() )// is number
         arg1 = atoi( stk->top()->name ) ;
 
       if ( !strcmp( stk->top()->type, "TMP_NUM" ) )
@@ -1595,7 +1640,7 @@ int CalculatePostfixForInt( vector<TokenPtr> *& postfixBuf, vector<IdPtr> *& idT
       } // else
       
       Str100 buf ;
-      memset( buf, '\0', sizeof( buf ) ) ;
+      InitBuf100( buf ) ;
       sprintf( buf, "%d", result ) ;
 
       TokenPtr tmp = new Token ;
@@ -1609,15 +1654,43 @@ int CalculatePostfixForInt( vector<TokenPtr> *& postfixBuf, vector<IdPtr> *& idT
   } // for
 
   int finalResult = atoi( stk->top()->name ) ;
-  delete stk->top() ;
+  TokenPtr tmp = stk->top() ;
+  delete tmp ;
   delete stk ;
   stk = NULL ;
 
   return finalResult ;
 } // CalculatePostfixForInt()
 
-float CalculatePostfixForFloat( vector<TokenPtr> *& postfixBuf, vector<IdPtr> *& idTable, bool & err )
+float CalculatePostfixForFloat( TokenPtrVecPtr & postfixBuf, IdPtrVecPtr & idTable, bool & err )
 {
+  if ( postfixBuf->size() == 1 )
+  {
+    if ( !strcmp( postfixBuf->at( 0 )->type, "ID" ) )
+    {
+      IdPtr idRecord = NULL ;
+
+      if ( GetIdRecord( idTable, postfixBuf->at( 0 )->name, idRecord ) )
+      {
+        float num = idRecord->valueFloat ;
+        cout << num << endl ;
+
+        if ( num == 0.0 ) // origin is int
+          num = ( float ) idRecord->valueInt ;
+        
+        return num ;
+      } // if
+
+      else
+      {
+        cout << "> Undefined identifier : \'" <<  postfixBuf->at( 0 )->name << "\'" << endl ;
+        err = true ;
+        return -1.0 ;
+      } // else
+    } // if
+
+  } // if ( only 1 operand )
+
   stack<TokenPtr> * stk = new stack<TokenPtr>() ;
 
   for ( int i = 0 ; i < postfixBuf->size() ; i++ )
@@ -1644,13 +1717,12 @@ float CalculatePostfixForFloat( vector<TokenPtr> *& postfixBuf, vector<IdPtr> *&
         {
           cout << "> Undefined identifier : \'" << stk->top()->name << "\'" << endl ;
           err = true ;
-          return -1 ;
+          return -1.0 ;
         } // else
       } // if
       else // is number
         arg2 = atof( stk->top()->name ) ;
 
-      cout << "arg2->" << arg2 << endl ;
       TokenPtr arg1Ptr = NULL, arg2Ptr = NULL ;
 
       if ( !strcmp( stk->top()->type, "TMP_NUM" ) )
@@ -1680,7 +1752,6 @@ float CalculatePostfixForFloat( vector<TokenPtr> *& postfixBuf, vector<IdPtr> *&
       else // is number
         arg1 = atof( stk->top()->name ) ;
 
-      cout << "arg1->" << arg1 << endl ;
       if ( !strcmp( stk->top()->type, "TMP_NUM" ) )
         arg2Ptr = stk->top() ;
 
@@ -1705,7 +1776,7 @@ float CalculatePostfixForFloat( vector<TokenPtr> *& postfixBuf, vector<IdPtr> *&
         if ( arg2 == 0.0 )
         {
           err = true ;
-          return -1 ;
+          return -1.0 ;
         } // if
 
         result = arg1 / arg2 ;
@@ -1713,7 +1784,8 @@ float CalculatePostfixForFloat( vector<TokenPtr> *& postfixBuf, vector<IdPtr> *&
       } // else
 
       Str100 buf ;
-      memset( buf, '\0', sizeof( buf ) ) ;
+      InitBuf100( buf ) ;
+
       sprintf( buf, "%f", result ) ;
 
       TokenPtr tmp = new Token ;
@@ -1727,7 +1799,8 @@ float CalculatePostfixForFloat( vector<TokenPtr> *& postfixBuf, vector<IdPtr> *&
   } // for
 
   float finalResult = atof( stk->top()->name ) ;
-  delete stk->top() ;
+  TokenPtr tmp = stk->top() ;
+  delete tmp ;
   delete stk ;
   stk = NULL ;
 
@@ -1740,11 +1813,11 @@ float Rounding3( float num )
 
   if ( num < 0 )
   {
-    isNegative = true ;	
+    isNegative = true ;
     num = -num ;
   } // if
 
-  num = int ( num * 1000 + 0.5 ) / 1000.0 ;
+  num = ( int ) ( num * 1000 + 0.5 ) / 1000.0 ;
 
   if ( isNegative )
     num = -num ;
@@ -1752,7 +1825,7 @@ float Rounding3( float num )
   return num ;
 } // Rounding3()
 
-void DefineId( vector<IdPtr> *& idTable, IdPtr & idSource )
+void DefineId( IdPtrVecPtr & idTable, IdPtr & idSource )
 {
   for ( int i = 0 ; i < idTable->size() ; i++ )
   {
